@@ -1,7 +1,10 @@
 const http = require('http');
 const fs = require('fs').promises;
 
-http.createServer(async, (req, res) => {
+// 데이터 저장용(데이터베이스 대용)
+const users = {}; 
+
+http.createServer(async (req, res) => {
     try {
         console.log(req.method, req.url);
         if(req.method === 'GET'){
@@ -13,6 +16,9 @@ http.createServer(async, (req, res) => {
                 const data = await fs.readFile('./about.html');
                 res.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'});
                 return res.end(data);
+            } else if (req.url == '/users') {
+                res.writeHead(200, {'Content-Type' : 'text/plain; charset=utf-8'});
+                return res.end(JSON.stringify(users));
             }
             // 주소가 /도 아니고 /about도 아니면
             try {
@@ -20,6 +26,42 @@ http.createServer(async, (req, res) => {
                 return res.end(data);
             } catch(err) {
                 // 404 Not Found(주소에 해당하는 라우트를 못 찾음)
+            }
+        } else if (req.method === 'POST') {
+            if(req.url === '/user'){
+                let body = '';
+                // 요청의 body를 stream 형식으로 받음
+                req.on('data', (data) => {
+                    body += data;
+                });
+                // 요청의 body를 다 받은 후 실행됨
+                return req.on('end', () => {
+                    console.log('POST 본문(Body):', body);
+                    const {name} = JSON.parse(body); // 받은 데이터가 문자열이므로 JSON으로 만드는 JSON.parse 필요!
+                    const id = Date.now();
+                    users[id] = name;
+                    res.writeHead(201);
+                    res.end('등록 성공');
+                });
+            }
+        } else if (req.method === 'PUT') {
+            if(req.url.startsWith('/user/')) {
+                const key = req.url.split('/')[2];
+                let body = '';
+                req.on('data', (data) => {
+                    body += data;
+                });
+                return req.on('end', () => {
+                    console.log('PUT 본문(Body):', body);
+                    users[key] = JSON.parse(body).name;
+                    return res.end(JSON.stringify(users));
+                });
+            }
+        } else if (req.method === 'DELETE') {
+            if(req.url.startsWith('/user/')) {
+                const key = req.url.split('/')[2];
+                delete users[key];
+                return res.end(JSON.stringify(users));
             }
         }
         res.writeHead(404);
