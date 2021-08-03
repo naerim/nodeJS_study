@@ -1,7 +1,7 @@
 const express = require('express');
-const morgan = require('morgan');
+const morgan = require('morgan'); // 요청과 응답에 대한 정보를 기록
 const cookieParser = require('cookie-parser');
-const session = require('express-session');
+const session = require('express-session'); // 세션을 구현하거나 특정 사용자를 위한 데이터를 임시적으로 저장해둘 때 매우 유용
 const dotenv = require('dotenv');
 const path = require('path');
 
@@ -9,8 +9,8 @@ dotenv.config(); // dotenv는 .env 파일을 읽어서 process.env로 만든다.
 const app = express();
 app.set('port', process.env.PORT || 3000);
 
-app.use(margan('dev'));
-app.use('/', express.static(path.join(__dirname, 'public')));
+app.use(morgan('dev'));
+app.use('/', express.static(path.join(__dirname, 'public'))); // static: 정적인 파일들을 제공하는 라우터 역할
 app.use(express.json());
 app.use(express.urlencoded({extended: false}));
 app.use(cookieParser(process.env.COOKIE_SECRET));
@@ -24,6 +24,39 @@ app.use(session({
     },
     name: 'session-cookie',
 }));
+
+const multer = require('multer');
+const fs = require('fs');
+const { UV_FS_O_FILEMAP } = require('constants');
+
+try {
+    fs.readdirSync('uploades');
+} catch (err) {
+    console.error('uploads 폴더가 없어 uploads 폴더를 생성합니다.');
+    fs.mkdirSync('uploads');
+}
+const upload = multer({
+    storage: multer.diskStorage({
+        destination(req, file, done) {
+            done(null, 'uploads/');
+        },
+        filename(req, file, done) {
+            const ext = path.extname(file.originalname);
+            done(null, path.basename(file.originalname, ext) + Date.now() + ext);
+        },
+    }),
+    limits: {fileSize: 5 * 1024 * 1024},
+});
+app.get('/upload', (req, res) => {
+    res.sendFile(path.join(__dirname, 'multipart.html'));
+});
+app.post('/upload',
+    upload.fields([{name: 'image1'}, {name: 'image2'}]),
+    (req, res) => {
+        console.log(req.files, req.body);
+        res.send('ok');
+    },
+);
 
 // app.use(미들웨어)
 app.use((req, res, next) => {
